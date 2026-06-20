@@ -11,5 +11,6 @@
 .cxx
 local.properties
 *.apk
+*.py
 *.pyc
 __pycache__/
