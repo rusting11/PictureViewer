@@ -48,7 +48,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         loadComics()
     }
 
-    private fun loadComics() {
+    fun loadComics() {
         viewModelScope.launch {
             allComics = withContext(Dispatchers.IO) { dataStore.getAllComics() }
             applySorting()
@@ -134,17 +134,22 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 val allEntries = withContext(Dispatchers.IO) {
                     dataStore.getAllEntries()
                 }
-                val existingUris = allEntries.map { it.uri }.toSet()
+                val existingComicUris = allEntries.filter { it.isComic }.map { it.uri }.toSet()
                 val rootUris = allEntries.mapNotNull { it.rootUri }.distinct()
+
+                android.util.Log.d("LibraryViewModel", "refreshAllComics: entries=${allEntries.size}, existingComicUris=${existingComicUris.size}, rootUris=$rootUris")
+                android.util.Log.d("LibraryViewModel", "refreshAllComics: existingComicUris=$existingComicUris")
 
                 val allNewEntries = java.util.concurrent.CopyOnWriteArrayList<LibraryEntry>()
                 
                 for (rootUriStr in rootUris) {
                     val rootUri = Uri.parse(rootUriStr)
+                    android.util.Log.d("LibraryViewModel", "refreshAllComics: scanning root=$rootUriStr")
                     withContext(Dispatchers.IO) {
-                        FolderScanner.refreshFolderStreaming(getApplication(), rootUri, existingUris) { entry ->
+                        FolderScanner.refreshFolderStreaming(getApplication(), rootUri, existingComicUris) { entry ->
                             allNewEntries.add(entry)
                             _scanCount.value++
+                            android.util.Log.d("LibraryViewModel", "refreshAllComics: found new entry=${entry.name}, uri=${entry.uri}")
                         }
                     }
                 }

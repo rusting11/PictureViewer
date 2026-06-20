@@ -32,7 +32,7 @@ class DataStore(context: Context) {
 
     fun getAllComics(): List<LibraryEntry> {
         val entries = getAllEntries()
-        val comics = entries.filter { it.isComic }
+        val comics = entries.filter { it.isComic }.distinctBy { it.uri }
         android.util.Log.d("DataStore", "getAllComics: total=${entries.size}, comics=${comics.size}")
         return comics.sortedByDescending { it.lastModified }
     }

@@ -658,27 +658,48 @@ class RenameViewModel(application: Application) : AndroidViewModel(application) 
             android.util.Log.d("RenameViewModel", "syncLibraryEntry: searching for entry with uri=${folderUri.toString()}")
             val index = allEntries.indexOfFirst { it.uri == folderUri.toString() }
             if (index < 0) {
-                android.util.Log.e("RenameViewModel", "syncLibraryEntry: entry not found")
+                android.util.Log.e("RenameViewModel", "syncLibraryEntry: entry not found, trying with normalized uri")
+                val normalizedUri = FolderScanner.normalizeUri(folderUri).toString()
+                val index2 = allEntries.indexOfFirst { it.uri == normalizedUri }
+                if (index2 < 0) {
+                    android.util.Log.e("RenameViewModel", "syncLibraryEntry: entry not found even with normalized uri")
+                    return
+                }
+                // 使用找到的索引
+                val entry = allEntries[index2]
+                android.util.Log.d("RenameViewModel", "syncLibraryEntry: found entry ${entry.name}, current imageUris=${entry.imageUris.size}, coverImagePath=${entry.coverImagePath}")
+                val freshImages = FolderScanner.getImageFiles(getApplication(), folderUri, rootUri)
+                android.util.Log.d("RenameViewModel", "syncLibraryEntry: freshImages=${freshImages.size}")
+                if (freshImages.isNotEmpty()) {
+                    val freshUriStrings = freshImages.map { it.toString() }
+                    android.util.Log.d("RenameViewModel", "syncLibraryEntry: freshUriStrings.firstOrNull()=${freshUriStrings.firstOrNull()}")
+                    allEntries[index2] = entry.copy(
+                        imageCount = freshImages.size,
+                        imageUris = freshUriStrings,
+                        coverImagePath = freshUriStrings.firstOrNull()
+                    )
+                    dataStore.saveEntries(allEntries)
+                    android.util.Log.d("RenameViewModel", "syncLibraryEntry: updated ${freshImages.size} image URIs, coverImagePath=${freshUriStrings.firstOrNull()}")
+                } else {
+                    android.util.Log.e("RenameViewModel", "syncLibraryEntry: freshImages is empty")
+                }
                 return
             }
 
             val entry = allEntries[index]
-            android.util.Log.d("RenameViewModel", "syncLibraryEntry: found entry ${entry.name}, current imageUris=${entry.imageUris.size}")
+            android.util.Log.d("RenameViewModel", "syncLibraryEntry: found entry ${entry.name}, current imageUris=${entry.imageUris.size}, coverImagePath=${entry.coverImagePath}")
             val freshImages = FolderScanner.getImageFiles(getApplication(), folderUri, rootUri)
             android.util.Log.d("RenameViewModel", "syncLibraryEntry: freshImages=${freshImages.size}")
             if (freshImages.isNotEmpty()) {
-                val freshUriStrings = freshImages.map { it.toString() }
-                android.util.Log.d("RenameViewModel", "syncLibraryEntry: freshUriStrings=${freshUriStrings.size}, entry.imageUris=${entry.imageUris.size}")
-                if (freshUriStrings != entry.imageUris) {
-                    allEntries[index] = entry.copy(
-                        imageCount = freshImages.size,
-                        imageUris = freshUriStrings
-                    )
-                    dataStore.saveEntries(allEntries)
-                    android.util.Log.d("RenameViewModel", "syncLibraryEntry: updated ${freshImages.size} image URIs")
-                } else {
-                    android.util.Log.d("RenameViewModel", "syncLibraryEntry: imageUris unchanged")
-                }
+                val freshUriStrings = freshImages.map { FolderScanner.normalizeUri(it).toString() }
+                android.util.Log.d("RenameViewModel", "syncLibraryEntry: freshUriStrings.firstOrNull()=${freshUriStrings.firstOrNull()}")
+                allEntries[index] = entry.copy(
+                    imageCount = freshImages.size,
+                    imageUris = freshUriStrings,
+                    coverImagePath = freshUriStrings.firstOrNull()
+                )
+                dataStore.saveEntries(allEntries)
+                android.util.Log.d("RenameViewModel", "syncLibraryEntry: updated ${freshImages.size} image URIs, coverImagePath=${freshUriStrings.firstOrNull()}")
             } else {
                 android.util.Log.e("RenameViewModel", "syncLibraryEntry: freshImages is empty")
             }

@@ -64,7 +64,8 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                         // 图片数量或 URI 变化（如改名后），更新缓存
                         val updatedEntry = entry.copy(
                             imageCount = freshImages.size,
-                            imageUris = freshImages.map { it.toString() }
+                            imageUris = freshImages.map { it.toString() },
+                            coverImagePath = freshImages.firstOrNull()?.toString()
                         )
                         val allEntries = dataStore.getAllEntries().toMutableList()
                         val index = allEntries.indexOfFirst { it.uri == entry.uri }
@@ -77,8 +78,6 @@ class ReaderViewModel(application: Application) : AndroidViewModel(application) 
                             _images.value = freshImages
                             Log.d("ReaderViewModel", "updated ${freshImages.size} images from folder (URIs changed)")
                         }
-                    } else {
-                        Log.d("ReaderViewModel", "background refresh: images unchanged, skip update")
                     }
                 }
             } else {

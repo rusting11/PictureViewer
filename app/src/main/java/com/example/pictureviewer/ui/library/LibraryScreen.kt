@@ -66,6 +66,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.pictureviewer.data.LibraryEntry
 import com.example.pictureviewer.ui.components.ComicCard
@@ -97,6 +99,11 @@ fun LibraryScreen(
     val gridState = rememberLazyGridState()
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
+
+    // 从其他页面返回时重新加载数据
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.loadComics()
+    }
 
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()

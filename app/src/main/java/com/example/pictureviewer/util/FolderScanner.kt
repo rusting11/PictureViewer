@@ -21,6 +21,10 @@ object FolderScanner {
         return ext in imageExtensions
     }
 
+    fun normalizeUri(uri: Uri): Uri {
+        return docUriToTreeUri(uri)
+    }
+
     /**
      * 流式扫描：每扫描到一个文件夹就回调
      */
@@ -112,10 +116,11 @@ object FolderScanner {
     suspend fun refreshFolderStreaming(
         context: Context,
         rootUri: Uri,
-        existingUris: Set<String>,
+        existingComicUris: Set<String>,
         onEntryFound: suspend (LibraryEntry) -> Unit
     ) {
-        scanDocQuickStreaming(context, rootUri, rootUri.toString(), null, existingUris, onEntryFound)
+        Log.d(TAG, "refreshFolderStreaming: rootUri=$rootUri, existingComicUris=${existingComicUris.size}")
+        scanDocQuickStreaming(context, rootUri, rootUri.toString(), null, existingComicUris, onEntryFound)
     }
 
     private suspend fun scanDocQuickStreaming(
@@ -123,7 +128,7 @@ object FolderScanner {
         treeUri: Uri,
         rootTreeUri: String,
         parentUri: String?,
-        existingUris: Set<String>,
+        existingComicUris: Set<String>,
         onEntryFound: suspend (LibraryEntry) -> Unit
     ) {
         try {
@@ -133,7 +138,13 @@ object FolderScanner {
             val storeUri = docUriToTreeUri(doc.uri)
             val storeUriStr = storeUri.toString()
 
-            if (storeUriStr in existingUris) return
+            Log.d(TAG, "scanDocQuickStreaming: name=${doc.name}, storeUri=$storeUriStr, inExistingComic=${storeUriStr in existingComicUris}, parentUri=$parentUri")
+            
+            // 漫画已存在则跳过，非漫画（有子文件夹）需要继续扫描
+            if (storeUriStr in existingComicUris && parentUri != null) {
+                Log.d(TAG, "scanDocQuickSkipping existing comic: ${doc.name}")
+                return
+            }
 
             val children = withContext(Dispatchers.IO) { doc.listFiles() }
             val subFolders = mutableListOf<DocumentFile>()
@@ -155,6 +166,8 @@ object FolderScanner {
             val isComic = subFolders.isEmpty() && imageUris.isNotEmpty()
             val lastModified = try { doc.lastModified() } catch (e: Exception) { System.currentTimeMillis() }
 
+            Log.d(TAG, "scanDocQuickStreaming: ${doc.name}, images=${imageUris.size}, subs=${subFolders.size}, isComic=$isComic")
+
             val entry = LibraryEntry(
                 uri = storeUriStr,
                 documentUri = doc.uri.toString(),  // 保存原始 document URI
@@ -172,10 +185,11 @@ object FolderScanner {
 
             // 并行扫描子文件夹
             if (subFolders.isNotEmpty()) {
+                Log.d(TAG, "scanDocQuickStreaming: ${doc.name} has ${subFolders.size} subfolders, scanning...")
                 coroutineScope {
                     subFolders.map { sub ->
                         async {
-                            scanDocQuickStreaming(context, sub.uri, rootTreeUri, storeUriStr, existingUris, onEntryFound)
+                            scanDocQuickStreaming(context, sub.uri, rootTreeUri, storeUriStr, existingComicUris, onEntryFound)
                         }
                     }.awaitAll()
                 }
@@ -273,22 +287,22 @@ object FolderScanner {
 
     private fun docUriToTreeUri(uri: Uri): Uri {
         val s = uri.toString()
-
-        // 如果已经是 tree URI 格式（不包含 /document/），直接返回
-        if (s.contains("/tree/") && !s.contains("/document/")) {
-            return uri
-        }
-
-        // 提取最后一个 /document/ 后面的 document ID
-        val marker = "/document/"
-        val idx = s.lastIndexOf(marker)  // 使用 lastIndexOf 处理混合格式
-        if (idx < 0) return uri
-
-        val docPath = s.substring(idx + marker.length)
         val authority = uri.authority ?: return uri
 
+        // 提取路径部分（支持 /tree/ 和 /document/ 两种格式）
+        val treeMarker = "/tree/"
+        val documentMarker = "/document/"
+        val treeIdx = s.indexOf(treeMarker)
+        val documentIdx = s.lastIndexOf(documentMarker)
+
+        val path: String = when {
+            documentIdx >= 0 -> s.substring(documentIdx + documentMarker.length)
+            treeIdx >= 0 -> s.substring(treeIdx + treeMarker.length)
+            else -> return uri
+        }
+
         // URL 编码路径中的特殊字符
-        val encodedPath = docPath
+        val encodedPath = path
             .replace(":", "%3A")
             .replace("/", "%2F")
             .replace(" ", "%20")
