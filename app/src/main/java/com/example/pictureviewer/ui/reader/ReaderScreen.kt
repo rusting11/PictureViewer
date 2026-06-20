@@ -101,6 +101,7 @@ fun ReaderScreen(
 
     var showControls by remember { mutableStateOf(false) }
     var zoomImageIndex by remember { mutableIntStateOf(-1) }
+    var isNavigatingBack by remember { mutableStateOf(false) }
 
     if (zoomImageIndex >= 0 && zoomImageIndex < images.size) {
         ZoomDialog(
@@ -135,8 +136,11 @@ fun ReaderScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = {
-                        viewModel.saveProgress()
-                        onBack()
+                        if (!isNavigatingBack) {
+                            isNavigatingBack = true
+                            viewModel.saveProgress()
+                            onBack()
+                        }
                     }) {
                         Icon(
                             Icons.AutoMirrored.Filled.ArrowBack,

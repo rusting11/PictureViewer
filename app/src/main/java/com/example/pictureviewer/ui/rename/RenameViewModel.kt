@@ -461,7 +461,10 @@ class RenameViewModel(application: Application) : AndroidViewModel(application) 
         android.util.Log.d("RenameViewModel", "extractRelativePath: uriStr=$uriStr")
         android.util.Log.d("RenameViewModel", "extractRelativePath: rootStr=$rootStr")
         if (uriStr.startsWith(rootStr)) {
-            val relative = uriStr.removePrefix(rootStr).trimStart('/')
+            val rawRelative = uriStr.removePrefix(rootStr)
+            // 解码后再去除开头的 /，然后重新编码
+            val decodedRelative = Uri.decode(rawRelative).trimStart('/')
+            val relative = Uri.encode(decodedRelative, "/")
             android.util.Log.d("RenameViewModel", "extractRelativePath: found relative (raw)=$relative")
             return relative.ifEmpty { null }
         }

@@ -237,7 +237,10 @@ object FolderScanner {
         val uriStr = uri.toString()
         val rootStr = rootUri.toString().trimEnd('/')
         if (uriStr.startsWith(rootStr)) {
-            val relative = uriStr.removePrefix(rootStr).trimStart('/')
+            val rawRelative = uriStr.removePrefix(rootStr)
+            // 解码后再去除开头的 /，然后重新编码
+            val decodedRelative = Uri.decode(rawRelative).trimStart('/')
+            val relative = Uri.encode(decodedRelative, "/")
             return relative.ifEmpty { null }
         }
 
